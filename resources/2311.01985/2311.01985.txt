@@ -1,0 +1,967 @@
+Maximizing Portfolio Predictability with Machine Learning∗
+Michael Pinelis**and David Ruppert***
+**Department of Economics, Cornell University, mdp93@cornell.edu
+***Department of Statistics & Data Science and School of Operations Research and
+Information Engineering, Cornell University, dr24@cornell.edu
+First draft: May 2020,
+November 3, 2023
+Abstract
+We construct the maximally predictable portfolio (MPP) of stocks using machine
+learning. Solving for the optimal constrained weights in the multi-asset MPP gives
+portfolios with a high monthly coefficient of determination, given the sample covariance
+matrix of predicted return errors from a machine learning model. Various models for the
+covariance matrix are tested. The MPPs of S&P 500 index constituents with estimated
+returns from Elastic Net, Random Forest, and Support Vector Regression models can
+outperform or underperform the index depending on the time period. Portfolios that
+take advantage of the high predictability of the MPP’s returns and employ a Kelly
+criterion style strategy consistently outperform the benchmark.
+Keywords : Maximally Predictable Portfolio, Machine Learning,
+Convex Portfolio Optimization, Empirical Stock Pricing
+∗We thank Yongmiao Hong and Hayoue Yang for their helpful comments and suggestions.
+1arXiv:2311.01985v1  [q-fin.CP]  3 Nov 2023
+
+1 Introduction
+The maximally predictable portfolio (MPP) problem is originally proposed by Lo and
+MacKinlay (1997). Its weights maximize the fraction of variability in the portfolio return
+explained by its conditional expectation. The MPP can be easily obtained as the eigenvector
+with the smallest eigenvalue of the matrix which is the product of the inverse of the covariance
+matrix of forecasted return errors and the historical returns covariance matrix, as long as
+only the unity constraint for the weights is imposed on the optimization. However, when
+many realistic constraints are imposed as in practice, finding a globally optimal solution in a
+rigorous manner can be a hard task.
+We revisit the problem and detail an algorithm by Gotoh and Fujisawa (2012) that
+efficiently computes the optimal portfolio weights for maximizing predictability under realistic
+constraints. With this algorithm, we compute the weights for MPPs of S&P 500 index
+constituents. The key input is return forecasts from various machine learning models which
+identify the most predictable assets. More predictable assets may outperform or underperform
+the broader marker depending on the time period. Two types of portfolios formed from the
+MPP consistently outperform the index. First, we scale sorted returns top deciles by the
+MPP weights, giving stocks that have the greatest forecasted returns and have been the
+most predictable the most importance in the new portfolios. Second, we reward-risk time
+the MPP in a portfolio with the risk-free asset.
+An outline of the paper follows. Section 2 reviews the literature. Section 3 describes
+the portfolio optimization methodology, including the portfolio return predictability problem,
+constrained optimization, and model descriptions. Section 4 demonstrates the results of using
+the MPP optimization algorithm and machine learning models, and Section 5 concludes.
+2 Literature
+Lo and MacKinlay (1997) first developed the concept of the MPP, maximizing the
+in-sample portfolio coefficient of determination. They use a linear factor model to estimate
+2
+
+conditional return expectations for various assets and do not constrain the asset weights
+except for the nonnegative case. They attain high levels of portfolio predictability for asset
+groups consisting of market indexes, size-sorted portfolios, and sector-sorted portfolios. The
+approach, however, also leads to extreme asset weights. Our methodology differs in that
+non-linear models are used to obtain forecasted returns, the portfolio weights are constrained,
+and our investment universe is large-cap U.S. stocks.
+There is a sizable stand of literature on the constrained optimization problem. Gotoh
+and Konno (2000) showed that a small scale problem with few assets can be solved within a
+practical amount of time by using classical Dinkelbach transformation and hyper-rectangular
+subdivision algorithm. Later, Yamamoto and Konno (2007) proposed a more efficient
+algorithm for solving the same problem by using 0-1 integer programming approach instead
+of a hyper-rectangular subdivision strategy. Yamamoto, Ishii, and Konno (2007) then use
+this algorithm to solve a maximal predictability portfolio (MPP) optimization problem with
+over a few hundred assets and up to 10 to 15 factors; they outperform the NIKKEI225 Index
+with standard factor models MPP over a limited time frame (about 100 months). Konno,
+Morita, and Yamamoto (2008) then reformulate the MPP problem with absolute deviation
+and find outperformance. Konno, Takaya, and Yamato (2010) apply a dynamic strategy for
+choosing the set of factors which fits best to the market data and see even better investment
+performance. Takay and Konno (2010) then apply turnover constraints and beat the index. A
+recent paper by Gotoh and Fujisawa (2012) propose an algorithm which can be implemented
+by simply solving a series of convex quadratic programs, and computational results show
+that it yields within a few seconds a (near) Karush–Kuhn–Tucker solution to instances in
+the previous papers which were solved via a global optimization method.
+We apply the algorithm from Gotoh and Fujisawa (2012) but to the stocks in the S&P
+500 index. Rather than using standard linear models, we use Elastic Net, Random Forest,
+and Support Vector Regression.
+There is also work that uses predictive errors from neural network models in portfolio
+optimization for Brazil stocks. Freitas et al. (2009) formulate a portfolio optimization
+3
+
+model that minimizes the portfolio’s overall prediction error. We consider this optimization
+objective and a variant as well for our investment universe.
+To our knowledge, this is the first paper written on a machine learning approach to
+forming the MPP.
+3 Methodology
+We compute the weights that give the highest portfolio coefficient of determination
+with an algorithm that solves a series of convex optimization problems. The covariance
+matrix of predicted stock return errors from machine learning models is an input in the
+objective function. The weights of the stocks in the portfolio are estimated each month
+to maximize portfolio return predictability. We also form long-short and market-timing
+portfolios from the MPP weights. We use separate machine learning models to predict
+indiviudal stock volatilities for the implementation of the market-timing portfolios. The
+initial data the models are trained on are from 1962 to 1969. The strategies are then optimized
+on out-of-sample data from 1970 to April 1990 in a procedure called validation. Every 12
+months, the training data shifts forward by one year and the models are refit. One set of
+models for each hyperparameter combination is kept in parallel. We select the combination of
+hyperparameters for each machine learning model that attains the highest overall predictive
+accuracy measured by out-of-sample R2over this validation period for all stocks. Then
+the models are tested on a holdout set from May 1990 to April 2020, data that provides a
+final estimate of the models’ performance after they have been validated, to prevent against
+backtest-overfitting (Bailey et al., 2015)1. This gives us a series of out-of-sample portfolio
+returns and corresponding performance metrics. Only one attempt on the holdout set is
+made. Algorithm 1 describes the general portfolio optimization approach.
+1Holdout sets are never used to make decisions about which algorithms to use or for improving or tuning
+algorithms. Therefore, the performance on the holdout set is indicative of investment performance if an
+investor starts trading with the models and strategy today.
+4
+
+Algorithm 1: Portfolio Optimization Approach
+foreach month t= 1toTdo
+1. Update models with the data until the most
+recent returns and predictors at time t−1
+2.foreach stock i= 1tondo
+(a) Forecast the return and volatility one month ahead
+end
+3. Recompute the covariance matrix of forecasted return errors and the covariance
+matrix of observed returns using data only until time t−1
+4. Compute the optimal portfolio weights at time twhich give the highest
+portfolio predictability
+end
+We conduct an extensive array of tests to evaluate the robustness of our results. A key
+result is that the typical investor can see substantial portfolio performance improvements in
+1) weighting the top expected return deciles of stocks by their predictability rather than just
+equal weighting or by their expected returns and 2) timing the MPP instead of the market
+index. The predictability of the MPP is statistically and economically significant. The next
+section establishes the portfolio optimization problem.
+3.1 Maximizing Predictability
+This section defines the predictability of a portfolio and examines the case in Lo and
+MacKinlay (1997), followed by the specific models in our empirical implementation.
+Consider the return vector of nassets Rt= [r1t, r2t, ..., r nt]⊤. The assets are those used
+to form the MPP. They can can be individual stocks or portfolios themselves, but in this
+paper they are the former. For the time being, assume the following:
+5
+
+Assumption 1 Rtis a jointly stationary and ergodic stochastic process with finite expecta-
+tionE[Rt] =µ= [µ1, µ2, ..., µ n]⊤and autocovariance matrices E[(Rt−k−µ)(Rt−µ)⊤] =Σk,
+where k≥0without loss of generality.
+This assumption is made for notational simplicity, as stationarity allows to ignore time
+indices.
+LetZt:=Rt−µbe a vector of de-meaned asset returns and ˆZtbe the forecast of the
+de-meaned returns based on the information set at time t−1,Ft−1. Now assume that
+ˆZt=E[Zt|Ft−1], (1)
+the conditional expectation of the asset returns with the information set at the previous
+time. Ztcan then be expressed as
+Zt=ˆZt+ϵt, (2)
+where E[ϵt|Ft−1] =0∈I Rn,var[ϵt|Ft−1] =Γ∈I Rn×nand importantly for the following
+results ˆZtandϵtare assumed independent. In the information set Ft−1are observable
+leading economic variables like interest-rate spreads or stock-specific factors like momentum,
+fundamental company performance measures, liquidity, and volatility.
+Letwdenote a linear combination of the assets in Zt. Then the predictability of this
+portfolio measured by the coefficient of determination is
+R2(w) = 1−var[w⊤ϵt]
+var[w⊤Zt]=var[w⊤ˆZt]
+var[w⊤Zt]=w⊤ˆΣ0w
+w⊤Σ0w, (3)
+where ˆΣ0=var[ˆZt] =E[ˆZtˆZ⊤
+t]∈I Rn×nandΣ0=var[Zt] =E[ZtZ⊤
+t]∈I Rn×n. The
+R2(w)is the fraction of the variability in the portfolio return w⊤Ztexplained by its
+conditional expectation, w⊤ˆZt.
+6
+
+Then maximizing predictability with respect to the relative asset weights w,
+max
+ww⊤ˆΣ0w
+w⊤Σ0w, (4)
+it is straightforward to show that the solution to the optimization problem is the eigenvector
+λ∗ofΣ−1
+0ˆΣ0withthelargesteignenvalue, whichwedenote λmax. Then w∗=λ∗/λ∗⊤1∈I Rn
+is the normalized linear combination and gives the MPP. As an example, the MPP is derived
+for a multivariate linear model in the next subsection.
+3.1.1 Multivariate Linear Model
+Starting with the model of returns as a linear function of mpredictors,
+Zt=α+BX t−1+ϵt (5)
+E[ϵt|Ft−1] =0, var [ϵt|Ft−1] =Γ, (6)
+where α∈I Rn,B∈I Rn×mis the matrix of coefficients, Xt−1∈I Rm, and Γ∈I Rn×nis a
+positive definite covariance matrix, we can derive closed-form expressions for the covariances:
+var[ˆZt] =Bvar[Xt−1]B⊤=ˆΣ0∈I Rn×n(7)
+var[Zt] =Bvar[Xt−1]B⊤+Γ=Σ0∈I Rn×n. (8)
+The predictability maximization problem and the solution are the same.
+TheMPPhasalsobeenderivedfromtheunconditionalcovariances. Forapplicability, the
+time-varying MPP can be constructed by replacing Σ0andΓwith conditional counterparts.
+In the empirical implementation, each expression above can be estimated with historical data
+Σ0andΓare estimated each month with rolling window sample data as sample covariance
+matrices.
+Equation 3 only holds if assuming the forecast errors are independent from the forecasts,
+which is often not realistic. Therefore, for the models we considered we will minimize the
+7
+
+second term in Equation 3. This way, the optimization will directly depend on the covariances
+of differences between actual returns and their predictions in Γwhich is described in the
+next section.
+3.1.2 Maximizing Predictability with a General Model
+Consider the below specification with the model fand matrix of observations X∈
+I Rn×m:
+Zt=ft(Xt) +ϵt (9)
+In the implementation, ftdenotes the model for the assets at time tis updated every 12
+months. Let each element of R∈I RT×nbe the observed return Ztiand each element of
+Q∈I RT×nbe the forecasted return ˆZti=ft(x1ti, x2ti, ..., x mti). Denote E=R−Q. The
+R2(w)can be computed as
+1−w⊤E⊤Ew
+w⊤R⊤Rw. (10)
+Minimizing the second term in (10) is the primary optimization objective.
+We also consider similar objectives. Following Freitas et al. (2009) we also look at the
+following objective, minimizing the portfolio’s overall forecast error without respect to the
+portfolio variance.
+minw⊤E⊤Ew (11)
+While the resulting portfolio’s volatility may be larger, the portfolio’s more extreme returns
+may be more easy to forecast correctly.
+Theoretically the MPP can be important, but in practice it will only lead
+to predictable portfolios out-of-sample if the predictability of stocks does not
+change drastically in a short period of time. If the cross-sectional autocorrelation
+of prediction errors is high, that is, the recent past errors for stocks are relatively
+8
+
+similar to next month’s, then the out-of-sample portfolio predictability should
+be high. Alternatively, if the model errors for individual stocks are highly
+autocorrelated then the following simple approach to portfolio weighting should
+also lead to predictable performance: take the mean of the past errors for each stock
+scaled to sum to one as the portfolio weights. The lookback windows are varied and discussed
+in the results section.
+Lastly, we examine minimizing the ratio of the portfolio’s forecast error and the expected
+return.
+minw⊤E⊤Ew
+w⊤µ(12)
+To allocate to the best performing stocks at the right times, we will set the expected stock
+returns µas the predicted returns for the next month from the models.
+While theoretically the MPP can be an important concept, in practice the weights are
+unrealistically extreme when unbounded. For this reason, the next section discusses the
+constrained optimization problem and details an efficient algorithm to find a near-optimal
+solution.
+3.2 Constrained Maximally Predictable Portfolio Optimization
+We consider constrained portfolio weights for real-life applicability.
+Assumption 2 The constraints on portfolio ware depicted by a bounded polyhedron of the
+form
+W={w∈I Rn:1⊤
+nw= 1,0≤w≤¯w,µ⊤w≥ρ, Aw≤b} (13)
+where 1⊤
+n:= (1 , ...,1)⊤∈I Rn,¯w∈I Rnis an upper bound vector, µ⊤:= (µ1, ..., µ n)⊤is a
+vector of estimated mean return, ρis a constant representing the expected return an investor
+requires, A∈I Rm×nandb∈I Rm. Then the constrained MPP is then obtained by solving:
+9
+
+min
+ww⊤E⊤Ew
+w⊤R⊤Rw
+s.t.w∈W
+The objective is the same as for the unconstrained case shown previously. The algorithm
+we use to obtain the MPP is developed by (Gotoh and Fujisawa, 2012). Their approach,
+termed normalized linearization algorithm (NLA), solves a finite sequence of convex quadratic
+programs to reach a near-optimal solution.
+Letη:= 1/√
+w⊤R⊤Rwwhere the denominator is greater than zero and y:=ηx. We
+can then rewrite the problem as
+min
+yy⊤E⊤Ey
+s.t.µ⊤y≥ρ1⊤
+ny,0≤y≤1⊤
+ny¯w,(A−y1⊤
+n)y≤0,y⊤R⊤Ry= 1
+Because of the single quadratic equality constraint, y⊤R⊤Ry= 1, the formulation above
+is a nonconvex quadratic program and still difficult to exactly solve. Now denote u=Ry.
+A key idea of the algorithm is to approximate the unit sphere u⊤u= 1by its tangent
+hyperplane, (uk−1)⊤uk−1= 1, at a point uk−1in each iteration. One iteration of NLA
+solves the following convex optimization problem for a given point (yk−1,uk−1)satisfying
+(uk−1)⊤uk−1= 1.
+QP(uk−1) : min
+yy⊤E⊤Ey
+s.t.µ⊤y≥ρ1⊤
+ny,0≤y≤1⊤
+ny¯w,(A−y1⊤
+n)y≤0,y⊤R⊤uk−1= 1
+The full algorithm is given below.
+10
+
+Algorithm 2: Normalized Linearization
+Result: The optimal portfolio weights, w∗
+1. Let ϵ >0be a tolerance for termination. Let (y0,u0)be a solution satisfying
+(u0)⊤u0= 1, and set k←1.
+2. Solve the convex quadratic program QP(uk−1), and let (¯yk,¯uk)be the obtained
+solution, where ¯uk=R¯yk.
+3. Set (yk,uk)←(¯yk,¯uk)/p
+(¯uk)⊤¯uk.
+ifp
+(¯uk)⊤¯uk≤1 +ϵthen
+w∗=yk/(yk)⊤1
+else
+Setk←k+ 1and go to Step 1.
+end
+The finite convergence of this algorithm is proven in Gotoh and Fujisawa (2012). CVXR
+(Anqi et al., 2017) in R was employed in solving the convex quadratic programs. The
+parameters are set to ρ=−0.1,Aas the identity matrix, and bas the ones vector. We
+allow the portfolio expected return to go below zero with the choice of ρbecause our interest
+is to form the most predictable portfolio and earn high returns in other ways. u0is set to
+R(1/√n)1andϵto10−3. Although other interesting cases are possible, the parameter we
+examine here is ¯w.
+We keep the same constraints for the objectives in (11) and (12). (11) is a standard
+convex optimization problem. For (12) we modify the NLA algorithm appropriately. The
+next sections discusses the models used to forecast stock returns and volatilities.
+11
+
+3.3 Elastic Net
+Starting with a standard linear model,
+yt=µ+mX
+i=1βixi,t−1+ϵt (14)
+where ytcan be either excess return stock returns Rtior the volatility σti, we can consider
+various forms of regression regularization to deal with the high dimensionality of the predictor
+set. This gives alternate procedures to estimate the model coefficients from OLS. First we
+describe LASSO, penalized regression that is designed to prevent overfitting with shrinkage.
+To fit a model, minimize the objective function
+min
+µ,β1,...,β m1
+TTX
+t=11
+NtNtX
+k=1
+yt−µ−mX
+j=1βjxj,t−1
+2
++λmX
+j=1|βj|, (15)
+where λ≥0is the shrinkage parameter on the l1penalty. Ntis the number of stocks or
+observations in the training data for month t. A higher value of λplaces a higher penalty
+on the coefficients’ absolute values, selectively shrinking them, and a high enough λcan
+make coefficients zero. This produces a looser fit on the training data but less chance of
+over-fitting in terms of out-of-sample forecasts. Setting λ= 0gives the same coefficients as
+OLS. To select the optimal value, validation is typically done by testing the performance for
+a range of values on an out-of-sample data set. The parameter value that gives the maximum
+predictive accuracy is then used in the model on a distinct out-of-sample set for which results
+are reported.
+While the LASSO fitting method typically improves predictions relative to the OLS
+model, it can sometimes select one predictor arbitrarily from a group of correlated predictors.
+Zou and Hastie (2005) proposed Elastic Net, regression with both l1andl2loss, which adds
+a second parameter and makes variable selection more robust. The objective function is
+argµ,β1,...,β m1
+TTX
+i=11
+NtNtX
+k=1(yt−µ−mX
+j=1βjxj,t−1)2+λ(αmX
+j|βj|+1
+2(1−α)mX
+j=1β2
+j).(16)
+12
+
+The parameter 0≤α≤1controls the blending of the l1andl2loss. Using α >0results
+in a stronger tendency to select groups of correlated predictors. The parameters αandλ
+for the Elastic Net model are chosen with the sample from 1970 to April 1990 with cross
+validation as described in Section 3. The out-of-sample predictions for LASSO or Elastic Net
+are given by
+ˆyt+1= ˆµ+mX
+i=1ˆβixi,t. (17)
+The predictions, like for a standard OLS linear model, are a weighted sum of variables.
+The next subsection discusses the machine learning model Random Forest, which relies on
+recursive partitioning of the feature space to make predictions, and why it can perform better
+than linear models in our portfolio allocation problem.
+3.4 Random Forest
+Random Forest is an ensemble machine learning algorithm developed by Breiman (2001).
+The prediction by a Random Forest model is the majority vote across all the individual
+decision tree learners (Hastie et al., 2017). The default tree bagging procedure draws B
+different bootstrap samples of the training data and fits a separate classification tree to
+thebthsample. The forecast is the average of the trees’ individual forecasts. Trees for a
+bootstrap sample are usually deep and overfit, meaning each has low bias but is inefficiently
+variable. Averaging over the Bpredictions reduces the variance and stabilizes the trees’
+forecast performance. Algorithm 2 gives the procedure used to construct a Random Forest
+with the implementation by Liaw and Wiener (2002).
+The prediction at a new point, xt, is
+yt+1=ˆh(xt) =1
+BBX
+b=1ˆTb(xt), (18)
+the average of all the individual trees’ predictions.
+Random forests give an improvement over bagging with a variation designed to reduce
+13
+
+Algorithm 3: Random Forest
+Result: The ensemble of trees { Tb}B
+forb= 1toBdo
+1. Draw a bootstrap sample Z∗of size nfrom the training data.
+2. Grow a random-forest tree Tbto the bootstrapped data by
+recursively repeating the following steps for each terminal node
+of the tree, until the minimum node size fraction sminor the maximum
+number of terminal nodes kmaxare reached.
+(a) Select mvariables at random from the pvariables
+(b) Pick the best variable/split-point among the m.
+(c) Split the node into two child nodes.
+the correlation among trees grown from different bootstrap samples. If most of the bootstrap
+samples are similar, the trees trained on these sample sets will be highly correlated. The
+average estimators of similar decision trees do not perform much better than a single decision
+tree. If, for example, among the variables, last month’s dividend yield is the dominant
+predictor of the return, then most of the bagged trees will have low-depth splits on the most
+recent yield, resulting in a large correlation among their predictions. Trees are de-correlated
+with a method known as "random subspace" or "attribute bagging," which considers only a
+random subset of mpredictors out of pfor splitting at each potential branch. In the example,
+attribute bagging will ensure early branches for some trees will split on predictors other than
+the most recent dividend yield. Since each tree is grown with different sets of predictors,
+the average correlation among trees further decreases and the variance reduction relative to
+standard bagging is larger (Gu et al. 2020)2. The number of variables randomly sampled
+as candidates at each split, m, the number of bootstrap samples, B, the minimum fraction
+of observations in the terminal nodes, smin, and kmaxare the tuning parameters optimized
+with validation. A detailed algorithm for classification trees can be found in the Appendix.
+The parameters m,smin,kmax, and Bare tuned with the sample from 1970 to April
+2Because this makes Random Forest a non-deterministic algorithm, we average the results for multiple
+different seeds.
+14
+
+1990. To test against parameter over-fitting, the final values are kept on the holdout time
+period from May 1990 to April 2020, for which results are reported, and only one attempt is
+made on the period.
+3.5 Support Vector Regression
+First identified by Cortes and Vapnik (1995), support vector machine finds an optimal
+hyperplane between two classes. SVMs are used to predict stock returns in papers like Huerta
+et al. (2013). Support vector regression is the analog for real-valued response variables
+(Harris et al., 1996).
+yt+1=f(x) =TX
+t=1NtX
+k=1αiziK(x,xt,k)−b (19)
+where xt,kis the vector of observations for time tand stock t,Tis the number of months
+in the training data, Ntis the number of stocks in the training data for month t,ziis the
+response variable value, bis a constant that shifts the predictions, and αiis a scalar between
+0 and C. C is the first parameter and controls how closely the model is fit to the training data.
+αiandbare given by solving the convex optimization problem described in the appendix.
+Lastly, K(xt,xt,k)is the kernel function. It is the radial basis function here.
+K(x,xt,k) =e−γ∥x−xt,k∥2/M(20)
+The kernel maps the feature vectors xinto infinite dimensional space and takes the pair-wise
+distance between them. γ >0is the second parameter tuned. Higher values increase the
+influence of a single training example. The values used for the return models for Candγ
+are 3 and 0.1, respectively. For the volatility models, C= 1andγ= 0.1. The R interface by
+Meyer (2023) to the well-known libsvm implementation (Change and Lin, 2022) is used.
+15
+
+3.6 MPP Strategies
+3.6.1 Timing the MPP
+In this section, we propose timing the MPP according to its prevailing reward and risk.
+The return forecasts from the models discussed in the previous subsections are utilized to
+maximize predictability in the portfolio. Taking the weighted sum of the individual stock
+return forecasts give an estimate for the expected return of the MPP. As the MPP is (by
+definition) the most predictable portfolio, predicting its return should easier than that of the
+market. We also forecast its monthly volatility.
+Pinelis and Ruppert (2020) allocate between the market index and the risk-free asset
+with expected excess return and volatility forecasts from machine learning models. We adopt
+the same framework to determine the optimal weight of the MPP in a portfolio with the
+risk-free asset. The optimal weight of the MPP is
+wMT
+t=E[Rt−Rf
+t|Ft−1]
+¯γ·var[Rt|Ft−1], (21)
+where Rt−Rf
+tis the excess return and ¯γrepresents the investor’s level of risk-aversion which
+is set as 4.
+Multiple estimates of the the excess return are considered. We use the weighted
+combination of individual monthly stock return forecasts as the conditional expectation,
+E[Rt−Rf
+t|Ft−1] =Pn
+i=1witE[Rit−Rf
+it|Ft−1], where witis the MPP weight of asset iand
+time t. We could also fit a separate model to forecast the excess returns of the MPP. The
+features can be the same as for the individual stock model but simply calculated on the
+portfolio-level. That topic is left for further research. In risk timing, the volatility estimate
+is commonly a form of the realized monthly daily return variances. As the weighted sum of
+individual stock return forecasts is used for the MPP return forecast, the monthly volatility
+forecast is given byq
+w⊤
+tV w twhere Vis diagonal (we do not try to forecast covariances
+between stock returns) and has the individual stock squared volatility forecasts3. Then wMT
+t
+3An estimate for the MPP’s volatility could aslo be given by a separate fitted stock volatility model with
+16
+
+can be computed as in Equation 21 and the final weights of the assets in the portfolio are
+αt=wMT
+twt.
+3.6.2 Long-Short Portfolios
+Next, rather than allocating between the MPP and the risk-free asset, we form a
+set of portfolios to directly exploit the varying predictability of different stocks’ machine
+learning return forecasts. At the end of each month, one-month-ahead out-of-sample stock
+return predictions for each model are calculated. We then sort stocks into deciles based on
+each model’s forecasts. We reconstitute portfolios each month using equal weights and the
+MPP’s weights. Finally, we construct a zero-net-investment portfolio that buys the highest
+expected return stocks (decile 10) and sells the lowest (decile 1). Therefore, there will be
+two sets of long-short portfolios which are identical in the set of holdings and have different
+weights. Weighting by the MPP can be thought of as a Kelly strategy (Kelly, 1956) where
+the MPP weights are proportional to the probability of successful bet. The stocks with
+the highest expected returns and ’probabilities’ of forecasting the high expected
+return correctly and will receive the highest weights and, if the probabilities
+are accurate, the MPP-weighted long-short portfolio should outperform the
+equal-weighted over time. In other words, the weights reflect the confidence in
+the forecasts.
+4 Empirical Results
+4.1 Data
+This paper uses monthly data from CRSP, Compustat, and Kenneth French’s4website.
+Stock prices, volume, and shares outstanding are from the CRSP database. Fundamental
+company data is from Compustat. Kenneth French’s website contains the historical risk-free
+the same features and next month’s realized monthly return volatility as the target variable for the stock
+volatility models.
+4http://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html
+17
+
+rate of return. The CRSP/Compustat merged database gives stock returns and the set of
+stocks that are in the S&P 500 index each month.
+From the data, fifteen fundamental features are formed. The features used in all the
+stock return models are a subset of those used in Gu et. al (2020) and are among the
+ones determined as most important for forecasting well, specifically: one-month momentum,
+marketcapitalization, six-monthmomentum, twelve-monthmomentum, changeinmomentum,
+maximum return, return volatility, change in shares, sales-to-price, share turnover, volatility
+of share turnover, price-to-earnings, book-to-market, and operating margin. For the stock
+volatility models, realized monthly lagged volatility is added to the variables listed before.
+4.2 MPP Predictability
+Here we show the characteristics of the MPP and variant portfolios for the different
+models. We can see that predictability varies significantly over time but is overall high.
+Next, we examine the predictability of the portfolios. Table 1 compares the average
+monthly coefficient of determination (given by Equation 10) for the MPPs for the different
+models under constraint cases and the average R2for the model fits to asset returns.
+Table 1: Coefficient of Determination
+This table contains the average portfolio R-squared (%) from May 1990 to April 2020 for OLS, Elastic
+Net, and Random Forest models with the asset weights capped at 0.1, 0.3, and 0.5.
+¯wi
+0.1 0.3 0.5
+OLS 20.97 21.48 21.48
+Elastic Net 16.31 16.61 16.61
+Random Forest 14.11 14.36 14.36
+The predictability for portfolios formed with the different models is similar, but OLS
+actually attains the highest coefficient of determination over the three different weight maxes.
+This could be explained by the OLS model having a bigger range in the magnitude of
+prediction errors. In that case, the MPP optimization has greater freedom to allocate weights
+to stocks with very small prediction errors. Since the weights are chosen to minimize past
+18
+
+forecast errors, this measure is not out-of-sample.
+To assess the out-of-sample predictive performance for individual stock return forecasts,
+we calculate the out-of-sample R2as
+R2
+oos= 1−P
+t∈T(rti−ˆrti)2
+P
+t∈Tr2
+ti(22)
+where Tdenotes the set of points not used for model training and rare monthly excess
+returns relative to the S&P500 index. Table 2 reports the average out-of-sample R2for each
+model.
+Table 2: Out-of-Sample Individual Stock Returns and Volatility R-squared
+This table contains the average individual stock prediction R-squared (%) from May 1990 to April
+2020 for OLS, Elastic Net, Random Forest models.
+Returns Volatility
+OLS 0.07 50.99
+Elastic Net 0.22 50.46
+Random Forest 0.19 31.29
+The monthly R2
+oosis 0.19% for the Random Forest model and 0.22% for the Elastic
+Net model. This is close to the benchmark out-of-sample R2that Gu et al. (2018) attain
+with Random Forest and Elastic Net on an optimized and comprehensive set of predictors.
+Forecasting volatility is easier as expected.
+We can also see whether these result depend on the time period. The figure below plots
+the coefficients as a function of the time (rolling window of 36 months).
+During stock market crises such as the Dot-Com bubble and the Great Recession
+expectantly the portfolios’ predictabilities decrease. The predictability of the differnet models
+attain similiar levels over time.
+We next look at how the predictability affects portfolio performance.
+4.3 Portfolio Performance
+This section discuss the out-of-sample investment performance for machine learning
+MPP and makes the relevant comparisons. We invest $1 in May 1990 and plot the cumulative
+19
+
+Figure 1: Coefficient of Determination MPP Portfolios ( wi= 0.3)This figure compares the
+predictability of the MPPs over time.
+wealth for the portfolios, displayed in Figure 2.
+The top decile of predicted returns weighted by MPP weights gives the best performance.
+The MPP gives a significant increase in investor’s wealth, yet timing the machine learning
+MPP with its expected excess return and volatility (Figure 3) results in the best performance.
+The below figure shows the reward-risk timing for the Elastic Net MPP for wi= 0.3.
+Indeed, the MPP is more easily predictable and easier to reward-risk time.
+Table 3 quantifies the risk-adjusted performance of the machine learning MPP, compared
+to the linear regression MPP and the buy-and-hold strategy for the two constraint cases.
+The machine learning MPP has higher annual returns than the market index. The appendix
+includes results for the other constraint cases.
+Overall, the results suggest that machine learning allows for more accurate realizations
+of which asset returns are most predictable and that the MPP can be used to reliably
+reward-risk time.
+20
+
+Table 3: Sharpe Ratios
+(wi= 0.3). In this table are the out-of-sample annual returns, standard deviations, Sharpe ratios,
+and turnover for the holdout period from April 1990 to May 2020. Mkt denotes the buy-and-hold.
+Annual Return (%) Standard Deviation (%) Sharpe Turnover (%)
+S&P 500 10.46 14.6 0.54 -
+Mkt Eql 12.33 15.95 0.61 -
+Mkt Tim 15.36 15.95 0.61 -
+OLS MPP 13.81 14.66 0.76 53.21
+OLS Min Err 10.46 12.84 0.61 53.54
+OLS Min Err/Ret 8.96 14.46 0.44 98.67
+OLS 1st Dec Eql 20.77 22.5 0.81 76.54
+OLS 10th Dec Eql 5.45 17.34 0.16 86.5
+OLS 1st Dec MPP 20.99 22.63 0.81 103.15
+OLS 10th Dec MPP 4.12 18.25 0.08 138.26
+OLS 1st Dec Err 14.58 17.12 0.7 112.3
+OLS 10th Dec Err 6.1 15 0.23 128.57
+OLS 1st Dec Err/Ret 15.82 18.74 0.71 103.92
+OLS 10th Dec Err/Ret 3.23 17.11 0.04 124.3
+OLS MPP Tim 20.88 21.36 0.86 4.2
+OLS Err Tim 13.63 16.12 0.68 8.85
+OLS Err/Ret Tim 9.36 14.79 0.46 26.36
+Elastic Net MPP 15.06 15.23 0.82 55.7
+Elastic Net Min Err 10.41 12.85 0.61 54.11
+Elastic Net Min Err/Ret 10.62 14.88 0.54 87.11
+Elastic Net 1st Dec Eql 21.71 23.27 0.82 71.15
+Elastic Net 10th Dec Eql 4.62 16.15 0.12 70.54
+Elastic Net 1st Dec MPP 23.75 22.98 0.92 98.19
+Elastic Net 10th Dec MPP 4.12 17.49 0.09 125.4
+Elastic Net 1st Dec Err 17.28 18.07 0.81 106.83
+Elastic Net 10th Dec Err 5.06 13.84 0.18 107.75
+Elastic Net 1st Dec Err/Ret 18.3 20.19 0.78 103.05
+Elastic Net 10th Dec Err/Ret 4.7 15.45 0.14 112.03
+Elastic Net MPP Tim 22.44 22.13 0.9 2.96
+Elastic Net Err Tim 12.37 15.96 0.61 8.08
+Elastic Net Err/Ret Tim 13.4 17.29 0.62 15.86
+Random Forest MPP 14.28 15.87 0.74 61.4
+Random Forest Min Err 9.78 12.5 0.57 54.43
+Random Forest Min Err/Ret 9.56 14.79 0.47 68.87
+Random Forest 1st Dec Eql 18.92 26.61 0.61 50.99
+Random Forest 10th Dec Eql 8.02 15.85 0.34 64.26
+Random Forest 1st Dec MPP 19.31 27.22 0.61 89.96
+Random Forest 10th Dec MPP 8.35 15.82 0.36 107.95
+Random Forest 1st Dec Err 16.7 20.73 0.68 89.23
+Random Forest 10th Dec Err 6.05 13.33 0.26 100.42
+Random Forest 1st Dec Err/Ret 17.6 23.9 0.63 84.71
+Random Forest 10th Dec Err/Ret 8.25 15.79 0.36 83.22
+Random Forest MPP Tim 21.05 23.25 0.79 2.55
+Random Forest Err Tim 14.01 17.18 0.66 4.65
+Random Forest Err/Ret Tim 12.92 19.97 0.52 4.86
+21
+
+Figure 2: Cumulative returns of MPP portfolios (Elastic Net, wi= 0.3).This figure plots
+the cumulative returns of the machine learning MPP portfolios from April 1990 to May 2020. The
+vertical axis is in log-scale.
+5 Conclusion
+We show that the maximally predictable portfolio (MPP) formed with machine learning
+is a significant source of return predictability. Using predicted stock returns from machine
+learning models to estimate the sample covariance of stock return errors leads to high portfolio
+R-squared values. While the MPP has higher predictability than the market index, when an
+investor times the machine learning MPP with its conditional excess return and volatility
+expectations, he or she can earn substantial improvements in risk-adjusted returns over not
+just the index but the portfolio which reward-risk times the index. Considering both the
+expected return for a stock and its predictability, specifically scaling the weight for highest
+expected return stocks by the confidence in their forecasts, leads to another level of portfolio
+outperformance.
+22
+
+Figure 3: Cumulative returns of Timing MPP portfolios (Elastic Net, wi= 0.3).This
+figure plots the cumulative returns of the machine learning MPP portfolios from April 1990 to May
+2020. The vertical axis is in log-scale.
+References
+[1] Breiman, Leo, 2001, Random Forests, In Machine learning 45, 5–32.
+[2]Breiman, Leo, Jerome H. Friedman, Richard A. Olshen, and Charles J. Stone, 1984,
+Classification and regression trees, CRC press.
+[3]Campbell, John Y. and Samuel B. Thompson, 2008, Predicting Excess Stock Returns
+Out of Sample: Can Anything Beat the Historical Average?, In The Review of Financial
+Studies21, No. 4, 1509-1531.
+[4] Cortes, C., Vapnik, V., 1995, Support-vector networks In Mach Learn . 20, 273–97.
+[5]Chih-Chung Chang and Chih-Jen Lin, 2011, LIBSVM: A library for support vector
+machines ACM transactions on intelligent systems and technology (TIST) 2, 3, 1–27.
+[6]Engle, Robert, 1982, Autoregressive conditional heteroskedasticity with estimates of the
+variance of U.K. inflation In Econometrica vol. 50, 987-1008.
+23
+
+[7]Fabio D. Freitas, Alberto F. De Souza, Ailson R. de Almeida, 2009, Prediction-based
+portfolio optimization model using neural networks In Neurocomputing vol.72, Issues
+10–12, 2155-70.
+[8]Fama, Eugene and Kenneth R. French, 1988b, Dividend yields and expected stock returns,
+InJournal of Financial Economics 222, 3-25.
+[9]Fu, Anqi, Balasubramanian Narasimhan, and Stephen Boyd 2017.
+“CVXR: An R Package for Disciplined Convex Optimization.”
+https://web.stanford.edu/ boyd/papers/cvxr_paper.html.
+[10]Goyal, Amit and Ivo Welch, 2008, A Comprehensive Look at The Empirical Performance
+of Equity Premium Prediction, In The Review of Financial Studies 21 No. 4, 1455 - 1508.
+[11]Gotoh, J.-y., Fujisawa, K., 2012, Convex optimization approaches to maximally pre-
+dictable portfolio selection. In Optim.: J. Math. Program. Oper. Res. , vol. 63, 1713–1735.
+[12]Gu, Shihao, Bryan T. Kelly, and Dacheng Xiu, 2018, Empirical Asset Pricing via
+Machine Learning, Chicago Booth Research Paper No. 18-04; 31st Australasian Finance
+and Banking Conference.
+[13]Drucker, Harris, Burges, Chris J. C., Kaufman, Linda, Smola, Alex, and Vapnik,
+Vladimir, 1996, Support Vector Regression Machines, In Proceedings of the 9th Interna-
+tional Conference on Neural Information Processing Systems, 155-61.
+[14]Hastie, Trevor, Jerome Friedman, and Robert Tibshirani, 2017, The Elements of
+Statistical Learning 2nd ed., Springer.
+[15]Henriksson, Roy D, and Robert Merton, 1981, On Market Timing and Investment
+Performance. II. Statistical Procedures for Evaluating Forecasting Skills, In The Journal
+of Business 54 No. 4, 513-33.
+[16]Jensen, Michael C., 1968, The Performance of Mutual Funds in the Period 1945-1964,
+InThe Journal of Finance 23 No. 2, 389-416.
+24
+
+[17]H. Konno, Y. Morita, and R. Yamamoto, 2010, A maximal predictability portfolio using
+absolute deviation reformulation, Comput. Manage. Sci. 7, pp. 47–60.
+[18]H. Konno, Y. Takaya, and R. Yamamoto, 2010, A maximal predictability portfolio using
+dynamic factor selection strategy, Int. J. Theor. Appl. Fin. 13, pp. 355–366.
+[19]Huerta, Ramon, Corbacho, Fernando, and Elkan, Charles, 2013, Nonlinear Support
+Vector Machines Can Systematically Identify Stocks with High and Low Future Returns.
+InAlgorithmic Finance 2, no. 1, 45-58.
+[20]J. L. Kelly Jr., 1956, A New Interpretation of Information Rate, Bell System Technical
+Journal. 35, pp. 917–26.
+[21]Liaw, Andy, and Matthew Wiener, 2002, Classification and Regression by randomForest,
+InR News2, 18-22.
+[22]A. Lo and C. MacKinlay, 1997, Maximizing predictability in the stock and bond markets,
+Macroeconomic dynamics 1, 102–134.
+[23]Markowitz, Harry, 1952, Portfolio Selection The Journal of Finance , Vol. 7, No. 1.,
+77-91.
+[24]Merton, Robert, 1981, On Market Timing and Investment Performance. I. An Equilib-
+rium Theory of Value for Market Forecasts In The Journal of Business vol. 54, no. 3,
+363-406.
+[25]Meyer, David, 2023, Support Vector Machines The Interface to libsvm in package e1071.
+[26] Murphy, Kevin, 2012, Machine Learning - a Probabilistic Perspective, MIT Press.
+[27]Pinelis, Michael and Ruppert, D., Machine Learning Portfolio Allocation, 2022. In The
+Journal of Finance and Data Science vol. 8, 35-54.
+[28]White, Halbert, 1980, A heteroskedasticity-consistent covariance matrix estimator and
+a direct test for heteroskedasticity, In Econometrica vol. 48, 817-838.
+25
+
+[29]R. Yamamoto, D. Ishii, and H. Konno, 2007, A maximal predictability portfolio model:
+Agorithm and performance evaluation, Int. J. Theor. Appl. Fin. 10, pp. 1095–1109.
+[30]R. Yamamoto and H. Konno, 2007, An efficient algorithm for solving convex-convex
+quadratic fractional programs, J. Optim. Theory Appl. 133 , pp. 241–255.
+[31]Yoo, Paul D., Maria H. Kim, and Tony Jan, 2005, Machine Learning Techniques and Use
+of Event Information for Stock Market Prediction: A Survey and Evaluation, International
+Conference on Computational Intelligence for Modeling, Control and Automation.
+26
+
+Appendix
+A Regression Tree Algorithm
+Algorithm A1 details how to build a regression tree in a Random Forest and is a greedy
+algorithm (Breiman et al., 1984). We refer to the recursive version in (Murphy, 2012).
+27
+
+Algorithm A1: Regression Tree
+Initialize stump node, N1(0).Nk(d)is the kth node at depth d.Sdenotes the data,
+andCis the set of unique labels.
+function fitTree( Nk(d),S,d)
+1. The prediction of the Nk(d)node is the average value of its observations,
+1
+|Nk(d)|P
+i∈Nk(d)yi
+2. Define the cost function as the sum of squared differences from the mean:
+cost({xi, yi}) =P
+i∈{xi,yi}(yi−¯y)2, where ¯y=1
+|{xi,yi}|P
+i∈{xi,yi}yi
+is the mean of the response variable in the specified set of data.
+3. Select the optimal split:
+(j∗, t∗) = arg minj∈{1,..,m}mint∈Tj(cost({xi, yi:xij≤t}) +cost({xi, yi:xij> t})).
+Sleft={xi, yi:xij≤t},Sright={xi, yi:xij> t}.
+4.ifnotworthSplitting( d,cost,Sleft,Sright)then
+return Nk(d)
+else
+Update the nodes:
+N1(d+ 1) =fitTree( Nk(d),Sleft,d+ 1)
+N2(d+ 1) =fitTree( Nk(d),Sright,d+ 1)
+return Nk(d)
+end
+Result: The regression tree model f(⃗ x) =PD
+m=1wm1{⃗ x∈Sm}, where
+wm=1
+|Sm|P
+i∈SmyiandDis the number of regions
+The function notworthSplitting (d,cost,Sleft,Sright) contains stopping heuristics to prevent
+overfitting. In our case, the function value is true if the fraction of examples in either Sleftor
+Srightis less than smin, the minimum fraction of observations in a node for a split determined
+by the user’s parameter optimization, or if the number of terminal nodes Dis equal to kmax,
+28
+
+the maximum number of terminal nodes. An important note is that the Sminthreshold is
+applied to the current node. For instance, a node can contain 5 observations out of 100 in
+the data even if Smin= 0.9, but any further splits from that node will not be made since
+5/100<0.9.
+For the return models, the values we set for smin,kmax, the number of trees, and the
+number of variables to select from at each split ( m) are 0.95, 6, 500, and 5, respectively. For
+the volatility models, the values we set for smin,kmax, the number of trees, and the number
+of variables to select from at each split ( m) are 0.92, 8, 500, and 5, respectively.
+B Support Vector Regression Convex Optimization
+The SVR model requires the solution of the following optimization problem:
+min
+α,b,E1
+2NX
+i=1NX
+j=1αiαjK(xi,xj) +CNX
+i=1Ei
+s.t. zi
+NX
+j=1αjK(xi,xj) +b
+≥1−ξifori= 1,2, . . . , N,
+ξi≥0fori= 1,2, . . . , N,
+where αare the weights, bis the bias, Nis the number of training examples, and Kis the
+Gaussian kernel function. Cis the cost hyperparameter and γis the radial basis function
+hyperparameter. For the return models, we set C= 3andγ= 0.1and for volatility models
+C= 3,γ= 0.1.
+C Additional Figures & Tables
+29
+
+Table 4: Sharpe Ratios
+(wi= 0.1). In this table are the out-of-sample annual returns, standard deviations, Sharpe ratios,
+and turnover for the holdout period from April 1990 to May 2020. Mkt denotes the buy-and-hold.
+Annual Return (%) Standard Deviation (%) Sharpe Turnover (%)
+S&P 500 10.46 14.6 0.54 -
+Mkt Eql 12.33 15.95 0.61 -
+Mkt Tim 15.36 15.95 0.61 -
+OLS MPP 14.16 14.61 0.79 50.25
+OLS Min Err 10.26 12.66 0.6 48.82
+OLS Min Err/Ret 9.9 14.06 0.52 93.57
+OLS 1st Dec Eql 20.77 22.5 0.81 76.54
+OLS 10th Dec Eql 5.45 17.34 0.16 86.5
+OLS 1st Dec MPP 21.42 22.56 0.83 98.64
+OLS 10th Dec MPP 4.45 18.14 0.1 132.7
+OLS 1st Dec Err 17.03 17.44 0.83 101.29
+OLS 10th Dec Err 5.24 14.53 0.18 115.22
+OLS 1st Dec Err/Ret 18.62 18.17 0.88 96.38
+OLS 10th Dec Err/Ret 3.23 16.14 0.04 112.65
+OLS MPP Tim 21.56 21.33 0.89 2.68
+OLS Err Tim 13.23 16.17 0.66 7.97
+OLS Err/Ret Tim 10.43 14.52 0.54 26.12
+Elastic Net MPP 15.04 15.16 0.82 53.13
+Elastic Net Min Err 10.14 12.52 0.6 47.85
+Elastic Net Min Err/Ret 10.49 13.93 0.57 80.16
+Elastic Net 1st Dec Eql 21.71 23.27 0.82 71.15
+Elastic Net 10th Dec Eql 4.62 16.15 0.12 70.54
+Elastic Net 1st Dec MPP 23.75 23 0.92 94.35
+Elastic Net 10th Dec MPP 4.45 17.49 0.11 120.46
+Elastic Net 1st Dec Err 20.23 18.33 0.96 96.91
+Elastic Net 10th Dec Err 4.48 13.36 0.14 94.45
+Elastic Net 1st Dec Err/Ret 21.6 20.05 0.95 94.1
+Elastic Net 10th Dec Err/Ret 3.59 15.38 0.06 100.28
+Elastic Net MPP Tim 22.73 22.22 0.91 2.75
+Elastic Net Err Tim 12.36 16.01 0.61 7.46
+Elastic Net Err/Ret Tim 11.99 16.88 0.56 13.84
+Random Forest MPP 14.67 15.7 0.77 59.58
+Random Forest Min Err 9.85 12.15 0.6 47.16
+Random Forest Min Err/Ret 9.54 14.16 0.49 67.04
+Random Forest 1st Dec Eql 18.92 26.61 0.61 50.99
+Random Forest 10th Dec Eql 8.02 15.85 0.34 64.26
+Random Forest 1st Dec MPP 19.52 27.02 0.63 86.4
+Random Forest 10th Dec MPP 8.28 15.87 0.36 105.49
+Random Forest 1st Dec Err 18.56 21.11 0.76 76.58
+Random Forest 10th Dec Err 6.94 12.81 0.34 89.44
+Random Forest 1st Dec Err/Ret 18.43 23.97 0.66 76.44
+Random Forest 10th Dec Err/Ret 8.22 15.38 0.36 77.13
+Random Forest MPP Tim 21.54 23.05 0.82 2.29
+Random Forest Err Tim 14.69 17.36 0.7 4.54
+Random Forest Err/Ret Tim 12.57 19.72 0.5 4.33
+30
+
+Table 5: Sharpe Ratios
+(wi= 0.5). In this table are the out-of-sample annual returns, standard deviations, Sharpe ratios,
+and turnover for the holdout period from April 1990 to May 2020. Mkt denotes the buy-and-hold.
+Annual Return (%) Standard Deviation (%) Sharpe Turnover (%)
+S&P 500 10.46 14.6 0.54 -
+Mkt Eql 12.33 15.95 0.61 -
+Mkt Tim 15.36 15.95 0.61 -
+OLS MPP 13.81 14.66 0.76 53.21
+OLS Min Err 10.47 12.84 0.61 53.55
+OLS Min Err/Ret 9.06 14.48 0.45 98.88
+OLS 1st Dec Eql 20.77 22.5 0.81 76.54
+OLS 10th Dec Eql 5.45 17.34 0.16 86.5
+OLS 1st Dec MPP 21 22.64 0.81 103.16
+OLS 10th Dec MPP 4.12 18.25 0.08 138.27
+OLS 1st Dec Err 14.32 17.08 0.69 113.73
+OLS 10th Dec Err 6.12 15.17 0.23 129.91
+OLS 1st Dec Err/Ret 16.21 18.62 0.73 105.62
+OLS 10th Dec Err/Ret 3.45 16.97 0.05 119.99
+OLS MPP Tim 20.88 21.36 0.86 4.2
+OLS Err Tim 13.63 16.12 0.68 8.85
+OLS Err/Ret Tim 9.08 14.83 0.44 25.52
+Elastic Net MPP 15.06 15.23 0.82 55.7
+Elastic Net Min Err 10.41 12.85 0.61 54.11
+Elastic Net Min Err/Ret 10.78 14.92 0.55 88.59
+Elastic Net 1st Dec Eql 21.71 23.27 0.82 71.15
+Elastic Net 10th Dec Eql 4.62 16.15 0.12 70.54
+Elastic Net 1st Dec MPP 23.75 22.98 0.92 98.2
+Elastic Net 10th Dec MPP 4.12 17.49 0.09 125.42
+Elastic Net 1st Dec Err 16.82 17.73 0.8 108.6
+Elastic Net 10th Dec Err 5.32 13.87 0.19 108.86
+Elastic Net 1st Dec Err/Ret 22.02 20.37 0.95 106.24
+Elastic Net 10th Dec Err/Ret 4.74 15.32 0.14 112.51
+Elastic Net MPP Tim 22.44 22.13 0.9 2.96
+Elastic Net Err Tim 12.37 15.96 0.61 8.06
+Elastic Net Err/Ret Tim 13.36 17.22 0.62 16.69
+Random Forest MPP 14.28 15.87 0.74 61.4
+Random Forest Min Err 9.79 12.5 0.57 54.43
+Random Forest Min Err/Ret 9.54 15.16 0.46 72.88
+Random Forest 1st Dec Eql 18.92 26.61 0.61 50.99
+Random Forest 10th Dec Eql 8.02 15.85 0.34 64.26
+Random Forest 1st Dec MPP 19.31 27.22 0.61 89.96
+Random Forest 10th Dec MPP 8.35 15.82 0.36 107.96
+Random Forest 1st Dec Err 16.43 20.7 0.67 91.69
+Random Forest 10th Dec Err 6.13 13.39 0.26 101.24
+Random Forest 1st Dec Err/Ret 16.32 23.84 0.57 84.07
+Random Forest 10th Dec Err/Ret 7.46 15.75 0.31 80.66
+Random Forest MPP Tim 21.05 23.25 0.79 2.55
+Random Forest Err Tim 14.01 17.18 0.66 4.65
+Random Forest Err/Ret Tim 12.9 20.37 0.5 5.23
+31
+
+Figure 4: Coefficient of Determination MPP Portfolios ( wi= 0.1)This figure compares the
+predictability of the MPPs over time.
+Figure 5: Coefficient of Determination MPP Portfolios ( wi= 0.5)This figure compares the
+predictability of the MPPs over time.
+32
+
+Figure 6: Cumulative returns of MPP portfolios (OLS, wi= 0.1).This figure plots the
+cumulative returns of the machine learning MPP portfolios from April 1990 to May 2020. The
+vertical axis is in log-scale.
+Figure 7: Cumulative returns of MPP portfolios (OLS, wi= 0.3).This figure plots the
+cumulative returns of the machine learning MPP portfolios from April 1990 to May 2020. The
+vertical axis is in log-scale.
+33
+
+Figure 8: Cumulative returns of MPP portfolios (OLS, wi= 0.5).This figure plots the
+cumulative returns of the machine learning MPP portfolios from April 1990 to May 2020. The
+vertical axis is in log-scale.
+Figure 9: Cumulative returns of MPP portfolios (Elastic Net, wi= 0.1).This figure plots
+the cumulative returns of the machine learning MPP portfolios from April 1990 to May 2020. The
+vertical axis is in log-scale.
+34
+
+Figure 10: Cumulative returns of MPP portfolios (Elastic Net, wi= 0.5).This figure plots
+the cumulative returns of the machine learning MPP portfolios from April 1990 to May 2020. The
+vertical axis is in log-scale.
+Figure 11: Cumulative returns of MPP portfolios (Random Forest, wi= 0.1).This figure
+plots the cumulative returns of the machine learning MPP portfolios from April 1990 to May 2020.
+The vertical axis is in log-scale.
+35
+
+Figure 12: Cumulative returns of MPP portfolios (Random Forest, wi= 0.3).This figure
+plots the cumulative returns of the machine learning MPP portfolios from April 1990 to May 2020.
+The vertical axis is in log-scale.
+Figure 13: Cumulative returns of MPP portfolios (Random Forest, wi= 0.5).This figure
+plots the cumulative returns of the machine learning MPP portfolios from April 1990 to May 2020.
+The vertical axis is in log-scale.
+36
+
+Figure 14: Cumulative returns of Timing MPP portfolios (OLS, wi= 0.1).This figure
+plots the cumulative returns of the machine learning MPP portfolios from April 1990 to May 2020.
+The vertical axis is in log-scale.
+Figure 15: Cumulative returns of Timing MPP portfolios (OLS, wi= 0.3).This figure
+plots the cumulative returns of the machine learning MPP portfolios from April 1990 to May 2020.
+The vertical axis is in log-scale.
+37
+
+Figure 16: Cumulative returns of Timing MPP portfolios (OLS, wi= 0.5).This figure
+plots the cumulative returns of the machine learning MPP portfolios from April 1990 to May 2020.
+The vertical axis is in log-scale.
+Figure 17: Cumulative returns of Timing MPP portfolios (Elastic Net, wi= 0.1).This
+figure plots the cumulative returns of the machine learning MPP portfolios from April 1990 to May
+2020. The vertical axis is in log-scale.
+38
+
+Figure 18: Cumulative returns of Timing MPP portfolios (Elastic Net, wi= 0.5).This
+figure plots the cumulative returns of the machine learning MPP portfolios from April 1990 to May
+2020. The vertical axis is in log-scale.
+Figure 19: Cumulative returns of Timing MPP portfolios (Random Forest, wi= 0.1).
+This figure plots the cumulative returns of the machine learning MPP portfolios from April 1990 to
+May 2020. The vertical axis is in log-scale.
+39
+
+Figure 20: Cumulative returns of Timing MPP portfolios (Random Forest, wi= 0.3).
+This figure plots the cumulative returns of the machine learning MPP portfolios from April 1990 to
+May 2020. The vertical axis is in log-scale.
+Figure 21: Cumulative returns of Timing MPP portfolios (Random Forest, wi= 0.5).
+This figure plots the cumulative returns of the machine learning MPP portfolios from April 1990 to
+May 2020. The vertical axis is in log-scale.
+40
