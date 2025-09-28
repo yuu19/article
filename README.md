@@ -10,20 +10,24 @@
 - `streamlit_app.py` : Streamlitによる論文解説とMPPシミュレーションUI
 
 ## セットアップ
-依存パッケージをインストールします。
+パッケージ管理には [uv](https://docs.astral.sh/uv/) を使用します。初回は以下の手順で仮想環境と依存関係を準備してください。
 
 ```bash
-python -m pip install --user cvxpy yfinance PyPDF2 streamlit
+# uv が未インストールの場合
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# .venv を作成しつつ依存パッケージを同期
+uv sync
 ```
 
-> `PyPDF2` はPDFのテキスト抽出、`cvxpy` はNLAによる凸最適化、`yfinance` は株価データ取得、`streamlit` はWebインターフェース構築に使用します。
+> `uv sync` により `.venv` が自動生成され、`cvxpy`・`yfinance`・`pandas`・`numpy`・`streamlit` など必要なライブラリがインストールされます。
 
 ## MPPパイプラインの使い方
 1. `resources/2311.01985/mpp_pipeline.py` の `NormalizedLinearizationMPP` でMPPウェイトを計算できます。`solve(verbose=True)` を指定すると反復時のスケーリング値が表示され、収束状況を確認できます。
 2. `resources/2311.01985/mpp_snp_demo.py` を実行すると、主要S&P500銘柄の月次リターンをダウンロードし、3ヶ月移動平均による単純予測をもとにMPP最適化を行います。
 
 ```bash
-python resources/2311.01985/mpp_snp_demo.py
+uv run python resources/2311.01985/mpp_snp_demo.py
 ```
 
 出力例:
@@ -37,7 +41,7 @@ python resources/2311.01985/mpp_snp_demo.py
 `streamlit_app.py` では、論文解説の閲覧とMPPシミュレーションをWeb UIで実行できます。
 
 ```bash
-streamlit run streamlit_app.py
+uv run streamlit run streamlit_app.py
 ```
 
 - サイドバーで対象銘柄・期間・移動平均期間・制約などを設定できます。
